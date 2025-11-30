@@ -5,6 +5,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "sysinfo.h"
 
 uint64
 sys_exit(void)
@@ -91,3 +92,36 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
+
+
+uint64
+sys_sysinfo(void)
+{
+    struct sysinfo info;
+    uint64 uaddr;
+
+    argaddr(0, &uaddr);
+
+    if(uaddr == 0){
+        printf("sys_sysinfo: user address is NULL!\n");
+        return -1;
+    }
+
+    info.freemem = freemem();
+    info.nproc   = nproc_count();
+    info.loadavg = loadavg();
+
+
+    printf("sys_sysinfo: freemem=%ld bytes, nproc=%ld, user addr=0x%p\n",
+           info.freemem, info.nproc, (void*)uaddr);
+
+    if(copyout(myproc()->pagetable, uaddr, (char *)&info, sizeof(info)) < 0){
+        printf("sys_sysinfo: copyout failed! user addr=0x%p\n", (void*)uaddr);
+        return -1;
+    }
+
+    return 0;
+}
+
+
+

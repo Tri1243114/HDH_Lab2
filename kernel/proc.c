@@ -1,3 +1,7 @@
+#define FSHIFT 16
+#define FIXED(x) ((x) << FSHIFT)
+#define TO_INT(x) ((x) >> FSHIFT)
+
 #include "types.h"
 #include "param.h"
 #include "memlayout.h"
@@ -5,6 +9,8 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+
+static uint64 load_avg = 0; 
 
 struct cpu cpus[NCPU];
 
@@ -449,36 +455,39 @@ scheduler(void)
 
   c->proc = 0;
   for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting.
     intr_on();
 
-    int found = 0;
-    for(p = proc; p < &proc[NPROC]; p++) {
+    int r = 0;
+    for(p = proc; p < &proc[NPROC]; p++){
       acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
+      if(p->state == RUNNABLE)
+        r++;
+      release(&p->lock);
+    }
+
+    load_avg = (load_avg * 63 + FIXED(r)) / 64;
+
+    int found = 0;
+    for(p = proc; p < &proc[NPROC]; p++){
+      acquire(&p->lock);
+      if(p->state == RUNNABLE){
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
         c->proc = 0;
         found = 1;
       }
       release(&p->lock);
     }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
+
+    if(!found){
       intr_on();
       asm volatile("wfi");
     }
   }
 }
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
@@ -693,3 +702,27 @@ procdump(void)
     printf("\n");
   }
 }
+
+uint64
+nproc_count(void)
+{
+  struct proc *p;
+  uint64 cnt = 0;
+
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->state != UNUSED)
+      cnt++;
+    release(&p->lock);
+  }
+
+  return cnt;
+}
+
+uint64
+loadavg(void)
+{
+    return load_avg;
+}
+
+

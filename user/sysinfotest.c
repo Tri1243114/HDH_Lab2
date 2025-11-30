@@ -10,6 +10,8 @@ sinfo(struct sysinfo *info) {
     printf("FAIL: sysinfo failed");
     exit(1);
   }
+
+printf("freemem=%lu, nproc=%lu, load_avg=%lu\n", info->freemem, info->nproc, info->loadavg);
 }
 
 //
@@ -133,7 +135,7 @@ void testbad() {
       exit(0);
   }
   wait(&xstatus);
-  if(xstatus == -1)  // kernel killed child?
+  if(xstatus == -1)  
     exit(0);
   else {
     printf("sysinfotest: testbad succeeded %d\n", xstatus);

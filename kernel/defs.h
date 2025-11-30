@@ -9,6 +9,8 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
+uint64 freemem(void);
+
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);
@@ -63,6 +65,7 @@ void            ramdiskrw(struct buf*);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
+uint64          freemem(void);  //bonus
 
 // log.c
 void            initlog(int, struct superblock*);
